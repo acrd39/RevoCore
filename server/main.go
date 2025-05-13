@@ -1,33 +1,38 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"log"
+	"revocore/server/handlers"
+	"revocore/server/pkg/config"
+	"revocore/server/pkg/database"
+
+	"github.com/gin-gonic/gin"
 )
 
-// 配置结构体
-type Config struct {
-	DBHost     string `yaml:"db_host"`
-	DBPort     int    `yaml:"db_port"`
-	DBUser     string `yaml:"db_user"`
-	DBPassword string `yaml:"db_password"`
-	DBName     string `yaml:"db_name"`
-}
-
 func main() {
-	// 初始化配置
-	cfg := loadConfig()
+	// 加载配置
+	cfg, err := config.LoadConfig("./configs/local.yaml")
+	if err != nil {
+		log.Fatal("配置加载失败:", err)
+	}
 
 	// 连接数据库
-	db, err := connectPostgres(cfg)
+	db, err := database.ConnectPostgres(cfg)
 	if err != nil {
 		log.Fatal("数据库连接失败:", err)
 	}
 
-	// 初始化Gin引擎
+	// 初始化Gin
 	r := gin.Default()
-	setupRoutes(r, db)
+
+	// 注入数据库到上下文
+	r.Use(func(c *gin.Context) {
+		c.Set("db", db)
+		c.Next()
+	})
+
+	// 设置路由
+	setupRoutes(r)
 
 	// 启动服务
 	if err := r.Run(":8080"); err != nil {
@@ -35,16 +40,16 @@ func main() {
 	}
 }
 
-func setupRoutes(r *gin.Engine, db *gorm.DB) {
-	// 健康检查接口
+func setupRoutes(r *gin.Engine) {
+	// 健康检查
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	// 用户模块路由组
+	// 用户路由
 	userGroup := r.Group("/users")
 	{
-		userGroup.POST("/register", registerUser)
-		userGroup.POST("/login", loginUser)
+		userGroup.POST("/register", handlers.RegisterUser)
+		userGroup.POST("/login", handlers.LoginUser)
 	}
 }
