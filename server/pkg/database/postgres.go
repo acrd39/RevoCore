@@ -21,5 +21,9 @@ func ConnectPostgres(cfg *config.Config) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to connect database: %w", err)
 	}
 
+	if err := db.AutoMigrate(&User{}); err != nil {
+		return nil, fmt.Errorf("数据库迁移失败: %w", err)
+	}
+
 	return db, nil
 }

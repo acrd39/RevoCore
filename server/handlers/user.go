@@ -22,18 +22,24 @@ func RegisterUser(c *gin.Context) {
 		return
 	}
 
-	// 密码需要加密存储（示例未加密，实际需使用bcrypt）
-	user := database.User{
-		Username: req.Username,
-		Password: req.Password,
-	}
-
-	if err := db.Create(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "用户创建失败"})
+	// 密码加密
+	var user database.User
+	if err := user.HashPassword(req.Password); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "密码处理失败"})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": user.ID})
+	user.Username = req.Username
+
+	if err := db.Create(&user).Error; err != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "用户名已存在"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"id":       user.ID,
+		"username": user.Username,
+	})
 }
 
 func LoginUser(c *gin.Context) {
