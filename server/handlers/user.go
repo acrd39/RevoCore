@@ -4,7 +4,10 @@ import (
 	"net/http"
 	"revocore/server/pkg/database"
 
+	"time"
+
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"gorm.io/gorm"
 )
 
@@ -43,5 +46,41 @@ func RegisterUser(c *gin.Context) {
 }
 
 func LoginUser(c *gin.Context) {
-	// 登录逻辑实现（JWT生成等）
+	db := c.MustGet("db").(*gorm.DB)
+
+	var req UserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var user database.User
+
+	if err := db.Where("username = ?", req.Username).First(&user); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "账号或密码错误"})
+		return
+	}
+
+	if err := user.CheckPassword(req.Password); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "账号或密码错误"})
+		return
+	}
+
+	claims := jwt.MapClaims{
+		"user_id":  user.ID,
+		"username": user.Username,
+		"exp":      time.Now().Add(time.Hour * 72).Unix(), // 72 小时后过期
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	tokenString, err := token.SignedString([]byte("your_secret_key"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "JWT生成失败"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": tokenString,
+	})
 }
