@@ -7,9 +7,9 @@ import (
 
 type User struct {
 	gorm.Model
-	Username string `gorm:"uniqueIndex;not null"` // 唯一索引
-	Password string `gorm:"not null"`             // 加密后的密码
-	Email    string `gorm:"uniqueIndex"`          // 可选字段
+	Username string `gorm:"uniqueIndex;not null"`     // 唯一索引
+	Password string `gorm:"not null"`                 // 加密后的密码
+	Email    string `gorm:"uniqueIndex;default:null"` // 可选字段
 	Avatar   string // 头像URL
 }
 
@@ -27,4 +27,3 @@ func (u *User) HashPassword(password string) error {
 func (u *User) CheckPassword(password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
 }
-

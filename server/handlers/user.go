@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"revocore/server/pkg/database"
 
@@ -34,8 +35,14 @@ func RegisterUser(c *gin.Context) {
 
 	user.Username = req.Username
 
-	if err := db.Create(&user).Error; err != nil {
+	if err := db.Where("username = ?", user.Username).First(&user).Error; err == nil {
+		// 用户名已存在
 		c.JSON(http.StatusConflict, gin.H{"error": "用户名已存在"})
+		return
+	}
+
+	if err := db.Create(&user).Error; err != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "创建用户失败"})
 		return
 	}
 
@@ -55,9 +62,18 @@ func LoginUser(c *gin.Context) {
 	}
 
 	var user database.User
+	fmt.Println(req.Username)
 
-	if err := db.Where("username = ?", req.Username).First(&user); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "账号或密码错误"})
+	if err := db.Where("username = ?", req.Username).First(&user).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// 没有找到记录
+			fmt.Println("User not found!")
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "账号或密码错误"})
+			return
+		}
+		// 其他错误
+		fmt.Println("Error querying database:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "数据库查询失败"})
 		return
 	}
 
